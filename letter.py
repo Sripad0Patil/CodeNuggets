@@ -46,7 +46,8 @@ match(m):
     greeting = input("Greetings: ") 
     body = input("The body: ")
     f = open('letter.txt', 'w')
-    f.write(f'''To
+    f.write(f'''\n
+               To
                {toname}
                {toaddress}
                {topincode}
@@ -74,25 +75,23 @@ match(m):
    body = input("The body: ")
    f = open('letter.txt', 'w')
    f.write(f'''\n
-          To
-          {toname}
-          {toaddress}
-          {topincode}
+                To
+                {toname}
+                {toaddress}
+                {topincode}
 
-          {date}
+                {date}
+  
+                 Dear {toname}
 
-          Dear {toname}
+                 {subject}  
 
-          {subject}  
+                {body}
 
-          {body}
-
-          Yours Sincerely.
-          {name}
-          {address}''')
+                Yours Sincerely.
+                {name}
+                {address}''')
    f.close()
 
  case _:
     print('Invalid choice')
-
-print("Hello")
