@@ -1,52 +1,78 @@
+#include <WiFi.h>
 #include <TM1637Display.h>
-#include <TimeLib.h>
+#include "time.h"
+#include "esp_sntp.h"
 
-// Define the CLK and DIO connections for TM1637
+// WiFi credentials
+const char *ssid = "SSiD";      // Replace with your WiFi SSID
+const char *password = "password"; // Replace with your WiFi password
+
+// NTP Server settings
+const char *ntpServer1 = "pool.ntp.org";
+const char *ntpServer2 = "time.nist.gov";
+const long gmtOffset_sec = 19800;       // GMT+5:30 offset in seconds
+const int daylightOffset_sec = 0;      // No daylight saving time in India
+
+// Timezone rule (optional, adjust as per your region)
+const char *time_zone = "IST-5:30";    // Indian Standard Time (optional)
+
+// TM1637 Pins
 #define CLK 22
 #define DIO 21
-#define BUZZER_PIN 23  // Pin connected to the buzzer
 
 TM1637Display display(CLK, DIO);
 
-// Set initial time (e.g., 4:59 so you can test it soon)
-int hours = 4;
-int minutes = 59;
+// Function to print local time for debugging
+void printLocalTime() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
+// Callback function for NTP time sync
+void timeavailable(struct timeval *t) {
+  Serial.println("NTP time synchronized!");
+  printLocalTime();
+}
 
 void setup() {
+  // Initialize serial and display
+  Serial.begin(115200);
   display.setBrightness(5);
   display.clear();
 
-  // Initialize buzzer pin as output
-  pinMode(BUZZER_PIN, OUTPUT);
+  // Connect to WiFi
+  Serial.printf("Connecting to %s ", ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println(" CONNECTED");
 
-  // Set initial time in the ESP32's RTC
-  setTime(hours, minutes, 0, 1, 1, 2023);  // Hour, Minute, Second, Day, Month, Year
+  // Configure NTP
+  sntp_set_time_sync_notification_cb(timeavailable); // Set callback
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2); // Basic NTP config
+  // configTzTime(time_zone, ntpServer1, ntpServer2); // Optional: Timezone-based config
+
+  Serial.println("Time synchronization initiated.");
 }
 
 void loop() {
-  // Get current time from ESP32's RTC
-  int currentHour = hour();
-  int currentMinute = minute();
-
-  // Display time in HH:MM format
-  display.showNumberDecEx(currentHour * 100 + currentMinute, 0b01000000, true);
-
-  // Check if it's time for the alarm (5:00 in this case)
-  if (currentHour == 5 && currentMinute == 0) {
-    triggerAlarm();
+  // Fetch the current time
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    // Display the time on the 4-digit 7-segment display
+    int hours = timeinfo.tm_hour;
+    int minutes = timeinfo.tm_min;
+    display.showNumberDecEx(hours * 100 + minutes, 0b01000000, true);
+  } else {
+    Serial.println("Waiting for time sync...");
   }
 
-  // Wait 1 second before updating time
+  // Wait for 1 second before refreshing
   delay(1000);
-}
-
-// Function to trigger the alarm
-void triggerAlarm() {
-  // Sound the buzzer for 10 seconds
-  for (int i = 0; i < 100; i++) {   // Adjust the number to control how long the buzzer sounds
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(100);                     // Buzzer ON
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(100);                     // Buzzer OFF
-  }
 }
